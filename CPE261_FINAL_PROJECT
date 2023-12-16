@@ -1,0 +1,1172 @@
+using System;
+using CsvHelper;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using CsvHelper.Configuration;
+using System.Globalization;
+using CsvHelper.Configuration.Attributes;
+
+namespace FinalProject
+{
+    abstract class MediaItem
+    {
+        [Name("title")]
+        public string Title { get; set; }
+
+        public MediaItem(string title)
+        {
+            Title = title;
+        }
+
+        public override string ToString()
+        {
+            return $"{Title}";
+        }
+    }
+    interface IBookable
+    {
+        [Name("dateTime")]
+        DateTime DateTime { get; set; }
+        [Name("availableTickets")]
+        int AvailableTickets { get; set; }
+    }
+
+    class Movie : MediaItem
+    {
+        [Name("genre")]
+        public string Genre { get; set; }
+        [Name("releaseDate")]
+        public DateTime ReleaseDate { get; set; }
+        [Name("duration")]
+        public int Duration { get; set; }
+        [Name("rating")]
+        public string Rating { get; set; }
+
+        public Movie(string title, string genre, DateTime releaseDate, int duration, string rating)
+            : base(title)
+        {
+            Genre = genre;
+            ReleaseDate = releaseDate;
+            Duration = duration;
+            Rating = rating;
+        }
+
+        public override string ToString()
+        {
+            return $"{base.ToString()} ({Genre}) - {ReleaseDate.ToShortDateString()} - {Duration} mins - Rated {Rating}";
+        }
+    }
+   class Showtime : IBookable
+{
+    [Name("movie")]
+    public Movie Movie { get; set; }
+    [Name("dateTime")]
+    public DateTime DateTime { get; set; }
+    [Name("availableTickets")]
+    public int AvailableTickets { get; set; }
+
+    public Showtime(Movie movie, DateTime dateTime, int availableTickets)
+    {
+        Movie = movie;
+        DateTime = dateTime;
+        AvailableTickets = availableTickets;
+    }
+}
+    class Booking
+    {
+        [Name("user")]
+        public User User { get; }
+        [Name("showtime")]
+        public Showtime Showtime { get; }
+        [Name("numTickets")]
+        public int NumTickets { get; }
+        public Booking(User user, Showtime showtime, int numTickets)
+        {
+            User = user;
+            Showtime = showtime;
+            NumTickets = numTickets;
+        }
+    }
+
+    class User
+    {
+           [Name("username")]
+           public string Username { get; set; }
+           [Name("password")]
+           public string Password { get; set; }
+           public List<Booking> Bookings { get; set; }
+           public User(string username, string password)
+            {
+                Username = username;
+                Password = password;
+                Bookings = new List<Booking>();
+            }
+    }
+
+    class Program
+    {
+        private const string MoviesFilePath = "C:\\Users\\bagui\\OneDrive\\Documents\\File Handling Files\\movies.csv";
+        private const string ShowtimesFilePath = "C:\\Users\\bagui\\OneDrive\\Documents\\File Handling Files\\showtimes.csv";
+        private const string UsersFilePath = "C:\\Users\\bagui\\OneDrive\\Documents\\File Handling Files\\users.csv";
+
+        static List<Movie> movies = new List<Movie>();
+        static List<Showtime> showtimes = new List<Showtime>();
+        static List<User> users = new List<User>();
+        static User currentUser = null;
+
+        static void Main(string[] args)
+        {
+            Welcome();
+            InitializeData();
+
+            static void Welcome()
+            {
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                string textArt = "\r\n\n\n\n\n\n\n" +
+                                 "\r\n╦ ╦╔═╗╦  ╔═╗╔═╗╔╦╗╔═╗  ╔╦╗╔═╗  ╔═╗╦╔╦╗  ╔═╗╦╔╗╔╔═╗╔╦╗╔═╗  ╔╦╗╦╔═╗╦╔═╔═╗╔╦╗  ╔╗ ╔═╗╔═╗╦╔═╦╔╗╔╔═╗" +
+                                 "\r\n║║║║╣ ║  ║  ║ ║║║║║╣    ║ ║ ║  ║  ║ ║   ║  ║║║║║╣ ║║║╠═╣   ║ ║║  ╠╩╗║╣  ║   ╠╩╗║ ║║ ║╠╩╗║║║║║ ╦" +
+                                 "\r\n╚╩╝╚═╝╩═╝╚═╝╚═╝╩ ╩╚═╝   ╩ ╚═╝  ╚═╝╩ ╩   ╚═╝╩╝╚╝╚═╝╩ ╩╩ ╩   ╩ ╩╚═╝╩ ╩╚═╝ ╩   ╚═╝╚═╝╚═╝╩ ╩╩╝╚╝╚═╝" +
+                                 "\r";
+                int consoleWidth = Console.WindowWidth;
+                string centeredTextArt = string.Join("\n", textArt.Split('\n').Select(line =>
+                {
+                    int padding = (consoleWidth - line.Length) / 2;
+                    return line.PadLeft(padding + line.Length);
+                }));
+                Console.WriteLine(centeredTextArt);
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("\t    By: Baguio, Earl Lawrence O.");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("\n\n\n\t\t\t\t\t\tPress any key to Start.");
+                Console.ReadKey();
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("\n\n\n\n\t\t\t\t\t " +
+                                                "\r\n\t\t\t\t██╗      ██████╗  █████╗ ██████╗ ██╗███╗   ██╗ ██████╗          " +
+                                                "\r\n\t\t\t\t██║     ██╔═══██╗██╔══██╗██╔══██╗██║████╗  ██║██╔════╝          " +
+                                                "\r\n\t\t\t\t██║     ██║   ██║███████║██║  ██║██║██╔██╗ ██║██║  ███╗         " +
+                                                "\r\n\t\t\t\t██║     ██║   ██║██╔══██║██║  ██║██║██║╚██╗██║██║   ██║         " +
+                                                "\r\n\t\t\t\t███████╗╚██████╔╝██║  ██║██████╔╝██║██║ ╚████║╚██████╔╝██╗██╗██╗" +
+                                                "\r\n\t\t\t\t╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝╚═╝╚═╝\n\n");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("                      MAROON                               &");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write("                                GOLD");
+                Console.WriteLine();
+                for (int i = 0; i < 12; i++)
+                {
+
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
+                    Console.Write("█████");
+                    Thread.Sleep(110);
+                }
+                for (int j = 0; j < 12; j++)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("█████");
+                    Thread.Sleep(110);
+                }
+                Console.Clear();
+            }
+
+            HomeMenu();
+
+            static void HomeMenu()
+            {
+                while (true)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkRed;
+                    Console.WriteLine("\n\n\n\t\t\t\t\t :======================================:" +
+                                           "\n\t\t\t\t\t | CIT-U's Cinema Ticket Booking System |" +
+                                           "\n\t\t\t\t\t :======================================:" +
+                                           "\n");
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("\t\t\t\t\tNote: Please Login to book your tickets.");
+                    Console.WriteLine("\n\t\t\t\t\t1. Login");
+                    Console.WriteLine("\t\t\t\t\t2. Register");
+                    Console.WriteLine("\t\t\t\t\t3. Browse Movies");
+                    Console.WriteLine("\t\t\t\t\t4. Exit");
+                    Console.Write("\t\t\t\t\tEnter your choice: ");
+                    string choice = Console.ReadLine();
+                    Console.Clear();
+                    switch (choice)
+                    {
+                        case "1":
+                            bool loginSuccessful = Login();
+
+                            if (loginSuccessful)
+                            {
+                                MainMenu();
+                            }
+                            Console.Clear();
+                            break;
+                        case "2":
+                            Console.Clear();
+                            Register();
+                            break;
+                        case "3":
+                            Console.Clear();
+                            BrowseMovies();
+                            break;
+                        case "4":
+                            Console.ForegroundColor = ConsoleColor.DarkRed;
+                            Console.Clear();
+                            Console.WriteLine(" :======================================================================================:" +
+                                              "\r\n | ╔╦╗╦ ╦╔═╗╔╗╔╦╔═  ╦ ╦╔═╗╦ ╦  ╔═╗╔═╗╦═╗  ╦ ╦╔═╗╦╔╗╔╔═╗  ╔═╗╦ ╦╦═╗  ╔═╗╦ ╦╔═╗╔╦╗╔═╗╔╦╗  |" +
+                                              "\r\n |  ║ ╠═╣╠═╣║║║╠╩╗  ╚╦╝║ ║║ ║  ╠╣ ║ ║╠╦╝  ║ ║╚═╗║║║║║ ╦  ║ ║║ ║╠╦╝  ╚═╗╚╦╝╚═╗ ║ ║╣ ║║║  |" +
+                                              "\r\n |  ╩ ╩ ╩╩ ╩╝╚╝╩ ╩   ╩ ╚═╝╚═╝  ╚  ╚═╝╩╚═  ╚═╝╚═╝╩╝╚╝╚═╝  ╚═╝╚═╝╩╚═  ╚═╝ ╩ ╚═╝ ╩ ╚═╝╩ ╩  |" +
+                                         "\r\n" + " :======================================================================================:"
+                                               + "\n\n\nCOPYRIGHT:\nAll rights reserved Copyright 2023-2024 CIT Cinema Ticket Booking System (CCTBS)\n2023 BAGUIO,EARL LAWRENCE -- Section H1 Cpe261 MIDTERM & FINAL PROJECT. All hail, Maroon and Gold.\n\n\n");
+                            Console.ResetColor();
+                            Environment.Exit(0);
+                            break;
+                        case "welcome":
+                            Console.Clear();
+                            Welcome();
+                            break;
+                        default:
+                            Console.Clear();
+                            Console.WriteLine("\t\t\t\t\tInvalid choice. Please try again.");
+                            Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Home menu.");
+                            Console.ReadKey();
+                            Console.Clear();
+                            break;
+                    }
+                }
+            }
+        }
+        static void InitializeData()
+        {
+
+            if (!File.Exists(MoviesFilePath))
+            {
+                // Creates an empty file
+                File.Create(MoviesFilePath).Close();
+            }
+
+            LoadMovies();
+
+            if (!File.Exists(ShowtimesFilePath))
+            {
+
+                File.Create(ShowtimesFilePath).Close();
+            }
+
+            LoadShowtimes();
+
+            if (!File.Exists(UsersFilePath))
+            {
+
+                File.Create(UsersFilePath).Close();
+            }
+            LoadUsers();  
+
+            //Add movies
+            Movie movie1 = new Movie("Drama 1", "Drama", new DateTime(2023, 9, 20), 120, "PG-18");
+            Movie movie2 = new Movie("Drama 2", "Drama", new DateTime(2023, 9, 29), 190, "PG-18");
+            Movie movie3 = new Movie("Horror 1", "Horror", new DateTime(2023, 9, 29), 135, "PG-18");
+            Movie movie4 = new Movie("Horror 2", "Horror", new DateTime(2023, 9, 22), 120, "R-18");
+            Movie movie5 = new Movie("Comedy 1", "Comedy", new DateTime(2023, 9, 23), 100, "PG-13");
+            Movie movie6 = new Movie("Comedy 2", "Comedy", new DateTime(2023, 9, 26), 110, "G");
+            Movie movie7 = new Movie("Action 1", "Action", new DateTime(2023, 9, 29), 100, "PG-16");
+            Movie movie8 = new Movie("Action 2", "Action", new DateTime(2023, 9, 23), 100, "PG-13");
+            Movie movie9 = new Movie("Fantasy 1", "Fantasy", new DateTime(2023, 9, 26), 110, "G");
+            Movie movie10 = new Movie("Fantasy 2", "Fantasy", new DateTime(2023, 9, 29), 100, "PG-16");
+
+            movies.Add(movie1);
+            movies.Add(movie2);
+            movies.Add(movie3);
+            movies.Add(movie4);
+            movies.Add(movie5);
+            movies.Add(movie6);
+            movies.Add(movie7);
+            movies.Add(movie8);
+            movies.Add(movie9);
+            movies.Add(movie10);
+
+            //Add Showtimes
+            Showtime showtime1 = new Showtime(movie1, new DateTime(2023, 9, 20, 18, 0, 0), 110);
+            Showtime showtime2 = new Showtime(movie2, new DateTime(2023, 9, 29, 19, 0, 0), 90);
+            Showtime showtime3 = new Showtime(movie3, new DateTime(2023, 9, 29, 19, 0, 0), 50);
+            Showtime showtime4 = new Showtime(movie4, new DateTime(2023, 9, 22, 16, 30, 0), 100);
+            Showtime showtime5 = new Showtime(movie5, new DateTime(2023, 9, 23, 19, 0, 0), 50);
+            Showtime showtime6 = new Showtime(movie6, new DateTime(2023, 9, 26, 17, 30, 0), 60);
+            Showtime showtime7 = new Showtime(movie7, new DateTime(2023, 9, 29, 19, 0, 0), 50);
+            Showtime showtime8 = new Showtime(movie8, new DateTime(2023, 9, 23, 19, 0, 0), 50);
+            Showtime showtime9 = new Showtime(movie9, new DateTime(2023, 9, 26, 17, 30, 0), 60);
+            Showtime showtime10 = new Showtime(movie10, new DateTime(2023, 9, 29, 19, 0, 0), 50);
+
+            showtimes.Add(showtime1);
+            showtimes.Add(showtime2);
+            showtimes.Add(showtime3);
+            showtimes.Add(showtime4);
+            showtimes.Add(showtime5);
+            showtimes.Add(showtime6);
+            showtimes.Add(showtime7);
+            showtimes.Add(showtime8);
+            showtimes.Add(showtime9);
+            showtimes.Add(showtime10);
+
+            //Create Sample users
+            User user1 = new User("demo", "123");
+            User user2 = new User("earl lawrence", "123");
+            User user3 = new User("dummy", "123");
+
+            users.Add(user1);
+            users.Add(user2);
+            users.Add(user3);
+        }
+
+        private static readonly string AdminPassword = "admin123";
+        static bool IsAdmin(string username, string Password)
+        {
+            return username.Equals("admin", StringComparison.OrdinalIgnoreCase) && Password.Equals(AdminPassword);
+        }
+        static bool Login()
+        {
+            int loginAttempts = 0;
+            const int maxLoginAttempts = 3;
+            bool loginSuccessful = false;
+
+            while (loginAttempts < maxLoginAttempts)
+            {
+                Console.WriteLine("\n\n\t\t\t\t\tPLEASE ENTER YOUR USERNAME AND PASSWORD");
+                Console.Write("\n\n\t\t\t\t\tEnter your username: ");
+                string username = Console.ReadLine();
+
+                Console.Write("\t\t\t\t\tEnter your password: ");
+                string password = MaskPasswordInput();
+
+                currentUser = new User(username, password);
+
+                // Check the login credentials
+                bool isValidCredentials = users.Any(u => u.Username == username && u.Password == password);
+                currentUser = users.FirstOrDefault(u => u.Username == username && u.Password == password);
+
+                if (isValidCredentials)
+                {
+                    loginSuccessful = true;
+                    break;
+                }
+                if (IsAdmin(username, password))
+                {
+                    AdminMenu();
+                    break;
+                }
+                else
+                {
+                    Console.Clear();
+                    loginAttempts++;
+                    Console.WriteLine($"\n\n\t\t\t\t   Invalid username or password. You have {maxLoginAttempts - loginAttempts} attempt(s) left.\n");
+                    if (loginAttempts >= maxLoginAttempts)
+                    {
+                        Console.WriteLine("\n\n\t\t\t\t  Maximum login attempts reached. Returning to Home menu");
+                        Console.WriteLine("\t\t\t\t-----------------------------------------------------------");
+                        Console.WriteLine("\n\n\t\t\t\t\tPress any key to return to the Home menu.");
+                        Console.ReadKey();
+                        Console.Clear();
+                    }
+                }
+            }
+            return loginSuccessful;
+        }
+        static string MaskPasswordInput()
+        {
+            string password = "";
+            ConsoleKeyInfo key;
+            do
+            {
+                key = Console.ReadKey(true); // Read a key without displaying 
+                if (key.Key != ConsoleKey.Backspace && key.Key != ConsoleKey.Enter)
+                {
+                    password += key.KeyChar;
+                    Console.Write("*"); // Display asterisk
+                }
+                else if (key.Key == ConsoleKey.Backspace && password.Length > 0)
+                {
+                    password = password.Remove(password.Length - 1);
+                    Console.Write("\b \b"); // Remove the last character from the console
+                }
+            } while (key.Key != ConsoleKey.Enter);
+
+            Console.WriteLine();
+            return password;
+        }
+
+        static void MainMenu()
+        {
+            while (true)
+            {
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                string textArt = "\r\n\n\n\n" +
+                                     "╦ ╦╔═╗╦  ╔═╗╔═╗╔╦╗╔═╗" +
+                                 "\r\n║║║║╣ ║  ║  ║ ║║║║║╣ " +
+                                 "\r\n╚╩╝╚═╝╩═╝╚═╝╚═╝╩ ╩╚═╝";
+                int consoleWidth = Console.WindowWidth;
+
+                int leftPadding = (consoleWidth - textArt.Split('\n')[0].Length) / 2;
+
+                string[] lines = textArt.Split('\n');
+                Console.Clear();
+                foreach (string line in lines)
+                {
+                    string centeredLine = line.PadLeft(leftPadding + line.Length);
+                    Console.WriteLine(centeredLine);
+                }
+                string uppercaseUsername = currentUser.Username.ToUpper();
+                Console.WriteLine("\t\t\t\t\t\t\tLogged in User: " + uppercaseUsername);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("\n\n\t\t\t\t\t\t\t1. Browse Movies");
+                Console.WriteLine("\t\t\t\t\t\t\t2. Book Tickets");
+                Console.WriteLine("\t\t\t\t\t\t\t3. View Booking History");
+                Console.WriteLine("\t\t\t\t\t\t\t4. Print your tickets");
+                Console.WriteLine("\t\t\t\t\t\t\t5. Logout");
+
+                Console.Write("\t\t\t\t\t\t\tEnter your choice: ");
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1":
+                        Console.Clear();
+                        BrowseMovies();
+                        break;
+                    case "2":
+                        Console.Clear();
+                        BookTickets();
+                        break;
+                    case "3":
+                        Console.Clear();
+                        ViewBookingHistory();
+                        break;
+                    case "4":
+                        Console.Clear();
+                        PrintTickets();
+                        break;
+                    case "5":
+                        Console.Clear();
+                        Console.WriteLine("\n\n\n\t\t\t\t\tSuccessfully Logged out!");
+                        Console.WriteLine("\n\t\t\t\t\tPress any key to return to Home menu.");
+                        Console.ReadKey();
+                        Console.Clear();
+                        currentUser = null;
+                        return;
+                    default:
+                        Console.Clear();
+                        Console.WriteLine("\n\n\n\t\t\t\t\tInvalid choice. Please try again.\n");
+                        Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Main menu.");
+                        Console.ReadKey();
+                        Console.Clear();
+                        break;
+                }
+            }
+        }
+
+        static void BrowseMovies()
+        {
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine("\t\t\t\t\t\t||Browsing of Movies|| ");
+                Console.WriteLine("\n\n\t\t\t\t\tAvailable Genres:");
+                // Display genres
+                var genres = movies.Select(movie => movie.Genre).Distinct().ToList();
+                Console.WriteLine("\n\t\t\t\t\t" + string.Join(", ", genres));
+                Console.WriteLine("\n------------------------------------------------------------------------------------------------------------------------");
+                Console.WriteLine("\n\t\t\t\t\tNote: Type 'exit' to return to Main menu.");
+                Console.Write("\n\t\t\t\t\tChoose a genre to browse movies : ");
+                string chosenGenre = Console.ReadLine();
+                Console.Clear();
+                if (chosenGenre.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.Clear();
+                    return;
+                }
+
+                // Filter movies by genre
+                var filteredMovies = movies.Where(movie => movie.Genre.Equals(chosenGenre, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                if (filteredMovies.Count == 0)
+                {
+                    Console.WriteLine($"\n\t\t\t\t\tNo movies found for the genre: {chosenGenre}");
+                    Console.WriteLine("\n\t\t\t\t\tPress any key to continue browsing");
+                    Console.ReadKey();
+                    Console.Clear();
+                    continue;
+                }
+
+                Console.WriteLine($"\n\t\t\t\t\tMovies in the selected genre ({chosenGenre}):");
+                foreach (Movie movie in filteredMovies)
+                {
+                    Console.WriteLine("\n\t\t\t" + movie);
+                }
+
+                Console.WriteLine("\t\t\t----------------------------------------------------------------------");
+                Console.WriteLine("\n\t\t\t\t\tPress any key to continue browsing");
+                ConsoleKeyInfo key = Console.ReadKey();
+                Console.Clear();
+            }
+        }
+        static void BookTickets()
+        {
+            Console.Clear();
+            Console.WriteLine("\t\t\t\t\t||Booking of Tickets||");
+            // Display genres
+            Console.WriteLine("\n\n\t\t\t\t\tAvailable Genres:");
+            var genres = movies.Select(movie => movie.Genre).Distinct().ToList();
+            Console.WriteLine("\t\t\t\t\t" + string.Join(", ", genres));
+            Console.WriteLine("\n------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("\n\t\t\t\t\tNote: Type 'exit' to return to Main menu.");
+            Console.Write("\n\t\t\t\t\tChoose a genre to browse movies : ");
+            string chosenGenre = Console.ReadLine();
+
+            if (chosenGenre == "exit")
+            {
+                return;
+            }
+            // Filter movies by genre
+            var filteredMovies = movies.Where(movie => movie.Genre.Equals(chosenGenre, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (filteredMovies.Count == 0)
+            {
+                Console.Clear();
+                Console.WriteLine($"\n\t\t\t\t\tNo movies Found: {chosenGenre}");
+                Console.WriteLine("\n\t\t\t\t\tPress any key.");
+                Console.ReadKey();
+                Console.Clear();
+                BookTickets();
+            }
+
+            Console.Clear();
+
+            Console.WriteLine("\t\t\t\t\tAvailable Showtimes:");
+            int index = 0;
+            foreach (Showtime showtime in showtimes.Where(s => s.Movie.Genre.Equals(chosenGenre, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine($"\n\t\t{index + 1}.{showtime.Movie.Title} ({showtime.Movie.Genre}) ({showtime.DateTime}) - Available Tickets: {showtime.AvailableTickets}");
+                index++;
+            }
+
+            if (index == 0)
+            {
+                Console.WriteLine($"\n\t\t\t\t\tNo showtimes found for the genre: {chosenGenre}");
+                Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Main menu.");
+                Console.ReadKey();
+                Console.Clear();
+                return;
+            }
+            Console.WriteLine("\n========================================================================================================================");
+            Console.Write($"\n\n\t\t\t\t\tEnter your choice(1 to {index} ): ");
+
+            if (int.TryParse(Console.ReadLine(), out int showtimeChoice) && showtimeChoice >= 1 && showtimeChoice <= index)
+            {
+                Showtime selectedShowtime = showtimes.Where(s => s.Movie.Genre.Equals(chosenGenre, StringComparison.OrdinalIgnoreCase)).ToList()[showtimeChoice - 1];
+
+                Console.Write("\t\t\t\t\tEnter the number of tickets to book: ");
+
+                if (int.TryParse(Console.ReadLine(), out int numTickets) && numTickets > 0)
+                {
+                    if (selectedShowtime.AvailableTickets >= numTickets)
+                    {
+                        Console.Clear();
+                        Booking booking = new Booking(currentUser, selectedShowtime, numTickets);
+                        currentUser.Bookings.Add(booking);
+                        selectedShowtime.AvailableTickets -= numTickets;
+
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        Console.WriteLine("\r\n\t\t" +
+                                "╔╦╗╦╔═╗╦╔═╔═╗╔╦╗╔═╗  ╔╗ ╔═╗╔═╗╦╔═╔═╗╔╦╗  ╔═╗╦ ╦╔═╗╔═╗╔═╗╔═╗╔═╗╔═╗╦ ╦╦  ╦ ╦ ╦" +
+                        "\r\n\t\t ║ ║║  ╠╩╗║╣  ║ ╚═╗  ╠╩╗║ ║║ ║╠╩╗║╣  ║║  ╚═╗║ ║║  ║  ║╣ ╚═╗╚═╗╠╣ ║ ║║  ║ ╚╦╝" +
+                        "\r\n\t\t ╩ ╩╚═╝╩ ╩╚═╝ ╩ ╚═╝  ╚═╝╚═╝╚═╝╩ ╩╚═╝═╩╝  ╚═╝╚═╝╚═╝╚═╝╚═╝╚═╝╚═╝╚  ╚═╝╩═╝╩═╝╩ \r\n");
+                        Console.WriteLine("\t\t   Thank you! for choosing CIT-U's Ticket booking System. Enjoy the movie!\n\t\t\t     You can now proceed to Printing your tickets.\t\t\t\t");
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+
+                        chooseBookTickets();
+                        static void chooseBookTickets()
+                        {
+                            Console.Write("\n\n\n\t\t\t   Do you want to book another ticket(s)? (Y-yes & N-No): ");
+                            string choose = Console.ReadLine();
+
+                            Console.Clear();
+
+                            if (choose == "Y" || choose == "y")
+                            {
+
+                                BookTickets();
+                            }
+                            else if (choose == "N" || choose == "n")
+                            {
+                                Console.WriteLine("\n\n\n\n\t\t\t\tPress any key to return to the Main menu.");
+                                Console.ReadKey();
+                                Console.Clear();
+                            }
+                            else
+                            {
+                                Console.Clear();
+                                Console.WriteLine("\n\n\n\n\t\t\t\t\t\tInvalid Choice!");
+                                Console.WriteLine("\n\t\t\t\t\t\tPress any key to Return");
+                                Console.ReadKey();
+                                Console.Clear();
+                                chooseBookTickets();
+                                Console.Clear();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.Clear();
+                        Console.WriteLine("\n\n\n\t\t\t\t\tInsufficient tickets available for this showtime.");
+                        Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Main menu.");
+                        Console.ReadKey();
+                        Console.Clear();
+                    }
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.WriteLine("\n\n\n\t\t\t\t\tInvalid number of tickets.");
+                    Console.WriteLine("\n\t\t\t\t\tPress any key to Return.");
+                    Console.ReadKey();
+                    BookTickets();
+                    Console.Clear();
+                }
+            }
+            else
+            {
+                Console.Clear();
+                Console.WriteLine("\n\n\n\t\t\t\t\tInvalid showtime choice.");
+                Console.WriteLine("\n\t\t\t\t\tPress any key to Return.");
+                Console.ReadKey();
+                BookTickets();
+                Console.Clear();
+            }
+
+        }
+
+        static void ViewBookingHistory()
+        {
+            Console.WriteLine("\n\t\t\tBooking History:");
+            var viewbooking = currentUser.Bookings;
+            if (viewbooking.Count == 0)
+            {
+                Console.WriteLine("\n\n\n\t\t\t\t\tYOU HAVE NOT BOOKED ANY TICKETS YET..");
+            }
+            if (currentUser != null)
+            {
+                foreach (Booking booking in currentUser.Bookings)
+                {
+                    Console.WriteLine($"\n\n\t\t\t{booking.Showtime.Movie.Title} ({booking.Showtime.DateTime}): {booking.NumTickets} tickets");
+                }
+            }
+            Console.WriteLine("\n\t\t\t\t      Press any key to return to the Main menu.");
+            Console.ReadKey();
+            Console.Clear();
+        }
+        static void PrintTickets()
+        {
+            try
+            {
+                Console.Clear();
+                if (currentUser != null && currentUser.Bookings.Count > 0)
+                {
+                    int ticketNumber = 1;
+                    foreach (Booking booking in currentUser.Bookings)
+                    {
+                        Console.WriteLine($"\n\t\t\tTicket {ticketNumber} Details:");
+                        Console.WriteLine($"\t\t\tMovie: {booking.Showtime.Movie.Title}");
+                        Console.WriteLine($"\t\t\tGenre: {booking.Showtime.Movie.Genre}");
+                        Console.WriteLine($"\t\t\tShowtime: {booking.Showtime.DateTime}");
+                        Console.WriteLine($"\t\t\tNumber of Tickets: {booking.NumTickets}");
+                        Console.WriteLine("\t\t\t---------------------------------");
+                        ticketNumber++;
+                    }
+
+                    Console.WriteLine("\n\t\t\t\tTickets printed successfully!");
+                }
+                else
+                {
+                    Console.WriteLine("\n\t\t\t\tNo bookings found to print tickets.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n\t\t\t\tAn error occurred while printing tickets: {ex.Message}");
+            }
+            finally
+            {
+                Console.WriteLine("\n\t\t\t\tPress any key to return to the Main menu.");
+                Console.ReadKey();
+                Console.Clear();
+            }
+        }
+        static void Register()
+        {
+            Console.Clear();
+            Console.WriteLine("\n\t\t\t\t\tUser Registration");
+            Console.Write("\n\t\t\t\t\tEnter a username: ");
+            string newUsername = Console.ReadLine();
+
+            // Checks if the username already exist
+            if (users.Any(u => u.Username == newUsername))
+            {
+                Console.WriteLine("\n\t\t\t\t\tUsername is already taken. Please choose a different one.");
+                Console.WriteLine("\n\t\t\t\t\tPress any key to return to Home menu.");
+                Console.ReadKey();
+                Console.Clear();
+                return;
+            }
+
+            Console.Write("\t\t\t\t\tEnter a password: ");
+            string newPassword = MaskPasswordInput();
+
+            User newUser = new User(newUsername, newPassword);
+            users.Add(newUser);
+
+            SaveUsersToFile();
+
+            Console.WriteLine("\n\t\t\t\t\tRegistration successful!");
+            Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Home menu.");
+            Console.ReadKey();
+            Console.Clear();
+        }
+        static void AdminMenu()
+        {
+            Console.Clear();
+            Console.WriteLine("\n\n\n\t\t\t\t\t\tADMIN MENU");
+            Console.WriteLine("\t\t\t\t\t\t============");
+            Console.WriteLine("\n\t\t\t\t\t\t1. Update Movies");
+            Console.WriteLine("\t\t\t\t\t\t2. Add Movie");
+            Console.WriteLine("\t\t\t\t\t\t3. Remove Movie");
+            Console.WriteLine("\t\t\t\t\t\t4. Logout");
+
+            Console.Write("\n\t\t\t\t\t\tEnter your choice: ");
+
+            if (int.TryParse(Console.ReadLine(), out int adminChoice))
+            {
+                switch (adminChoice)
+                {
+                    case 1:
+                        UpdateMovie();
+                        Console.Clear();
+                        break;
+                    case 2:
+                        Console.Clear();
+                        AddMovie();
+                        break;
+                    case 3:
+                        Console.Clear();
+                        RemoveMovie();
+                        Console.Clear();
+                        break;
+                    case 4:
+                        Console.Clear();
+                        Console.WriteLine("\n\t\t\t\t\tSuccessfully Logged out");
+                        Console.WriteLine("\t\t\t\t\tPress any key to continue.");
+                        Console.ReadKey();
+                        Console.Clear();
+                        break;
+                    default:
+                        Console.Clear();
+                        Console.WriteLine("\n\t\t\t\t\tInvalid choice. Please try again.");
+                        Console.ReadKey();
+                        AdminMenu();
+                        break;
+                }
+            }
+            else
+            {
+                Console.Clear();
+                Console.WriteLine("\n\t\t\t\t\tInvalid input. Please enter a valid choice.");
+                Console.ReadKey();
+                Console.Clear();
+                AdminMenu();
+            }
+        }
+        static void AddMovie()
+        {
+            Console.Clear();
+
+            Console.WriteLine("\n\t\t\t\t\tAdding a New Movie:");
+
+            Console.Write("\n\t\t\t\t\tEnter the title of the movie: ");
+            string title = Console.ReadLine();
+
+            Console.Write("\t\t\t\t\tEnter the genre of the movie: ");
+            string genre = Console.ReadLine();
+
+            Console.Write("\t\t\t\t\tEnter the release date of the movie (yyyy-MM-dd): ");
+            if (DateTime.TryParse(Console.ReadLine(), out DateTime releaseDate))
+            {
+                Console.Write("\t\t\t\t\tEnter the duration of the movie (in minutes): ");
+                if (int.TryParse(Console.ReadLine(), out int duration) && duration > 0)
+                {
+                    Console.Write("\t\t\t\t\tEnter the rating of the movie: ");
+                    string rating = Console.ReadLine();
+
+                    Movie newMovie = new Movie(title, genre, releaseDate, duration, rating);
+                    movies.Add(newMovie);
+
+                    Console.WriteLine("\n\t\t\t\t\tMOVIE ADDED SUCCESSFULLY!!");
+
+                    AddShowtime(newMovie);
+                    SaveMoviesToFile();
+
+                }
+                else
+                {
+                    Console.WriteLine("\n\t\t\t\t\tInvalid duration. Please enter a positive integer.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\n\t\t\t\t\tInvalid release date format. Please use yyyy-MM-dd.");
+            }
+
+            Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Admin menu.");
+            Console.ReadKey();
+            AdminMenu();
+            Console.Clear();
+        }
+        static void AddShowtime(Movie movie)
+        {
+            Console.Write("\n\t\t\t\t\tEnter the date of the showtime (yyyy-MM-dd): ");
+            if (DateTime.TryParseExact(Console.ReadLine(), "yyyy MM dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            {
+                Console.Write("\t\t\t\t\tEnter the hour of the showtime (0-23): ");
+                if (int.TryParse(Console.ReadLine(), out int hour) && hour >= 0 && hour <= 23)
+                {
+                    Console.Write("\t\t\t\t\tEnter the minute of the showtime (0-59): ");
+                    if (int.TryParse(Console.ReadLine(), out int minute) && minute >= 0 && minute <= 59)
+                    {
+                        DateTime dateTime = new DateTime(date.Year, date.Month, date.Day, hour, minute, 0);
+
+                        Console.Write("\t\t\t\t\tEnter the number of available tickets: ");
+                        if (int.TryParse(Console.ReadLine(), out int availableTickets) && availableTickets >= 0)
+                        {
+                            Showtime newShowtime = new Showtime(movie, dateTime, availableTickets);
+                            showtimes.Add(newShowtime);
+
+                            Console.WriteLine("\n\t\t\t\t\tShowtime added successfully!");
+                            SaveShowtimesToFile();
+                        }
+                        else
+                        {
+                            Console.WriteLine("\n\t\t\t\t\tInvalid number of available tickets. Please enter a non-negative integer.");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("\n\t\t\t\t\tInvalid minute. Please enter a value between 0 and 59.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\n\t\t\t\t\tInvalid hour. Please enter a value between 0 and 23.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\n\t\t\t\t\tInvalid date format. Please use yyyy-MM-dd.");
+            }
+
+            Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Admin menu.");
+            Console.ReadKey();
+            AdminMenu();
+            Console.Clear();
+        }
+
+
+        static void RemoveMovie()
+        {
+            Console.WriteLine("\n\t\t\t\t\tRemoving a Movie:");
+
+
+            Console.WriteLine("\n\t\t\t\t\tAvailable Movies:");
+            for (int i = 0; i < movies.Count; i++)
+            {
+                Console.WriteLine($"\t\t\t\t\t{i + 1}. {movies[i].Title}");
+            }
+
+            Console.Write("\n\t\t\t\t\tEnter the number of the movie to remove: ");
+
+            if (int.TryParse(Console.ReadLine(), out int movieNumber) && movieNumber >= 1 && movieNumber <= movies.Count)
+            {
+
+                Movie movieToRemove = movies[movieNumber - 1];
+
+                movies.Remove(movieToRemove);
+                RemoveShowtimesForMovie(movieToRemove);
+                Console.Clear();
+                Console.WriteLine("\t\t\t\t\tMovie removed successfully!");
+                SaveMoviesToFile();
+            }
+            else
+            {
+                Console.WriteLine("\n\t\t\t\t\tInvalid movie number. No movie removed.");
+            }
+
+            Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Admin menu.");
+            Console.ReadKey();
+            AdminMenu();
+            Console.Clear();
+        }
+
+        static void UpdateMovie()
+        {
+            Console.Clear();
+            Console.WriteLine("\n\t\t\t\t\tUpdating a Movie:");
+
+            // Display available movies for selection
+            Console.WriteLine("\n\t\t\t\t\tAvailable Movies:");
+           
+            for (int i = 0; i < movies.Count; i++)
+            {
+                Console.WriteLine($"\t\t\t\t\t{i + 1}. {movies[i].Title}");
+            }
+
+            Console.Write("\n\t\t\t\t\tEnter the number of the movie to update: ");
+
+            if (int.TryParse(Console.ReadLine(), out int movieNumber) && movieNumber >= 1 && movieNumber <= movies.Count)
+            {
+                // Get the movie to update
+                Movie movieToUpdate = movies[movieNumber - 1];
+                Console.WriteLine("\n========================================================================================================================");
+                // Prompt user for new movie information
+                Console.Write("\t\t\t\t\tEnter the new title of the movie: ");
+                string newTitle = Console.ReadLine();     
+                Console.Write("\t\t\t\t\tEnter the new genre of the movie: ");
+                string newGenre = Console.ReadLine();
+
+                Console.Write("\t\t\t\t\tEnter the new release date of the movie (yyyy-MM-dd): ");
+                if (DateTime.TryParse(Console.ReadLine(), out DateTime newReleaseDate))
+                {
+                    Console.Write("\t\t\t\t\tEnter the new duration of the movie (in minutes): ");
+                    if (int.TryParse(Console.ReadLine(), out int newDuration) && newDuration > 0)
+                    {
+                        Console.Write("\t\t\t\t\tEnter the new rating of the movie: ");
+                        string newRating = Console.ReadLine();
+
+                        // Update the movie properties
+                        movieToUpdate.Title = newTitle;
+                        movieToUpdate.Genre = newGenre;
+                        movieToUpdate.ReleaseDate = newReleaseDate;
+                        movieToUpdate.Duration = newDuration;
+                        movieToUpdate.Rating = newRating;
+
+                        // Update corresponding showtime
+                        UpdateShowtimeForMovie(movieToUpdate);
+
+                        SaveMoviesToFile(); // Save the updated movies to the file
+
+                        Console.WriteLine("\n\t\t\t\t\tMovie and corresponding showtime updated successfully!");
+                    }
+                    else
+                    {
+                        Console.WriteLine("\n\t\t\t\t\tInvalid duration. Please enter a positive integer.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\n\t\t\t\t\tInvalid release date format. Please use yyyy-MM-dd.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\n\t\t\t\t\tInvalid movie number. No movie updated.");
+            }
+
+            Console.WriteLine("\n\t\t\t\t\tPress any key to return to the Admin menu.");
+            Console.ReadKey();
+            AdminMenu();
+            Console.Clear();
+        }
+        static void UpdateShowtimeForMovie(Movie movie)
+        {
+            Console.Clear();
+            // Find the showtime corresponding to the given movie
+            Showtime showtimeToUpdate = showtimes.FirstOrDefault(s => s.Movie == movie);
+            Console.Clear();
+            if (showtimeToUpdate != null)
+            {
+                // Prompt user for new showtime information
+                Console.Write("\t\t\t\t\tEnter the new date of the showtime (yyyy-MM-dd): ");
+                if (DateTime.TryParseExact(Console.ReadLine(), "yyyy MM dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime newDate))
+                {
+                    Console.Write("\t\t\t\t\tEnter the new hour of the showtime (0-23): ");
+                    if (int.TryParse(Console.ReadLine(), out int newHour) && newHour >= 0 && newHour <= 23)
+                    {
+                        Console.Write("\t\t\t\t\tEnter the new minute of the showtime (0-59): ");
+                        if (int.TryParse(Console.ReadLine(), out int newMinute) && newMinute >= 0 && newMinute <= 59)
+                        {
+                            DateTime newDateTime = new DateTime(newDate.Year, newDate.Month, newDate.Day, newHour, newMinute, 0);
+
+                            Console.Write("\t\t\t\t\tEnter the new number of available tickets: ");
+                            if (int.TryParse(Console.ReadLine(), out int newAvailableTickets) && newAvailableTickets >= 0)
+                            {
+                                // Update the showtime properties
+                                showtimeToUpdate.DateTime = newDateTime;
+                                showtimeToUpdate.AvailableTickets = newAvailableTickets;
+
+                                SaveShowtimesToFile(); // Save the updated showtimes to the file
+
+                                Console.WriteLine("\n\t\t\t\t\tShowtime updated successfully!");
+                            }
+                            else
+                            {
+                                Console.WriteLine("\n\t\t\t\t\tInvalid number of available tickets. Please enter a non-negative integer.");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("\n\t\t\t\t\tInvalid minute. Please enter a value between 0 and 59.");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("\n\t\t\t\t\tInvalid hour. Please enter a value between 0 and 23.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\n\t\t\t\t\tInvalid date format. Please use yyyy-MM-dd.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\n\t\t\t\t\tShowtime not found for the updated movie.");
+            }
+        }
+        static void RemoveShowtimesForMovie(Movie movie)
+        {
+            List<Showtime> showtimesToRemove = showtimes.Where(s => s.Movie == movie).ToList();
+            foreach (Showtime showtime in showtimesToRemove)
+            {
+                showtimes.Remove(showtime);
+            }
+            SaveShowtimesToFile();
+        }
+        static void LoadMovies()
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            //Console.WriteLine($"Loading Movies from: {MoviesFilePath}");  
+            try
+            {
+                if (File.Exists(MoviesFilePath))
+                {
+                    using (var reader = new StreamReader(MoviesFilePath))
+                    using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
+                    {
+                        movies = csv.GetRecords<Movie>().ToList();
+                    }
+                }
+                else
+                {
+                    //default
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while loading movies: {ex.Message}");
+            }
+        }
+
+        static void LoadShowtimes()
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            //Console.WriteLine($"Loading Showtimes from: {ShowtimesFilePath}");         
+            try
+            {
+                if (File.Exists(ShowtimesFilePath))
+                {
+                    using (var reader = new StreamReader(ShowtimesFilePath))
+                    using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
+                    {
+                        showtimes = csv.GetRecords<Showtime>().ToList();
+                    }
+                }
+                else
+                {
+                    //deafault
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while loading showtimes: {ex.Message}");
+            }
+        }
+        static void LoadUsers()
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            //Console.WriteLine($"Loading users from: {UsersFilePath}");
+
+            if (File.Exists(UsersFilePath))
+            {
+                using (var reader = new StreamReader(UsersFilePath))
+                using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
+                {
+                    users = csv.GetRecords<User>().ToList();
+                }
+            }
+            else
+            {
+                Console.WriteLine("Users file not found. Initializing with default users or leaving it empty.");
+            }
+        }
+        static void SaveMoviesToFile()
+        {
+            try
+            {
+                //Console.WriteLine($"Saving movies to: {MoviesFilePath}");
+                using (var writer = new StreamWriter(MoviesFilePath))
+                using (var csv = new CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture))
+                {
+                    csv.WriteRecords(movies);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while saving movies: {ex.Message}");
+            }
+        }
+        static void SaveShowtimesToFile()
+        {
+            try
+            {
+                //Console.WriteLine($"Saving showtimes to: {ShowtimesFilePath}");
+                using (var writer = new StreamWriter(ShowtimesFilePath))
+                using (var csv = new CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture))
+                {
+                    csv.WriteRecords(showtimes);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while saving showtimes: {ex.Message}");
+            }
+        }
+
+        static void SaveUsersToFile()
+        {
+            if (File.Exists(UsersFilePath))
+            {
+                try
+                {
+                    //Console.WriteLine($"Saving users to: {UsersFilePath}");
+                    using (var writer = new StreamWriter(UsersFilePath))
+                    using (var csv = new CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture))
+                    {
+                        csv.WriteRecords(users);
+                        csv.NextRecord();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred while saving users: {ex.Message}");
+                }
+            }
+        }
+    } 
+} 
